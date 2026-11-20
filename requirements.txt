@@ -10,4 +10,5 @@ tqdm>=4.66
 lime>=0.2.0.1
 matplotlib>=3.7
 openpyxl>=3.1   # some HASOC releases ship as .xlsx
+emoji>=2.10     # emoji -> word conversion in xhate/data/preprocess.py
 pytest>=8.0
