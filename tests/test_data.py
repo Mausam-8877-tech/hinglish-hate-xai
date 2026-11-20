@@ -202,6 +202,74 @@ def test_load_hasoc_autodetects_columns_and_split(tmp_path):
     assert [r["label"] for r in splits["test"]] == [HOF, NOT]
 
 
+# --------------------------------------------------------------- dataset
+def _tiny_wordpiece_tokenizer():
+    """Build a small BERT-style (WordPiece) fast tokenizer OFFLINE, no internet needed."""
+    # Skip these tests if transformers / tokenizers are not installed.
+    tokenizers = pytest.importorskip("tokenizers")
+    transformers = pytest.importorskip("transformers")
+    # Vocabulary: special tokens, whole words, and "##" continuation pieces.
+    vocab = ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "you", "are", "tr", "##ash", "nice", "day"]
+    # WordPiece model: unknown words become [UNK]; "trash" -> "tr" + "##ash".
+    model = tokenizers.models.WordPiece({w: i for i, w in enumerate(vocab)}, unk_token="[UNK]")
+    # Wrap the model in a tokenizer object.
+    tok = tokenizers.Tokenizer(model)
+    # Split input on whitespace before WordPiece.
+    tok.pre_tokenizer = tokenizers.pre_tokenizers.Whitespace()
+    # Add [CLS] ... [SEP] around every input, like BERT / MuRIL.
+    tok.post_processor = tokenizers.processors.TemplateProcessing(
+        single="[CLS] $A [SEP]", special_tokens=[("[CLS]", 2), ("[SEP]", 3)])
+    # Turn it into a HuggingFace fast tokenizer (needed for word_ids()).
+    return transformers.PreTrainedTokenizerFast(tokenizer_object=tok, unk_token="[UNK]", pad_token="[PAD]",
+                                                cls_token="[CLS]", sep_token="[SEP]")
+
+
+def test_dataset_aligns_rationale_to_subwords():
+    """Each sub-word gets its word's rationale; [CLS]/[SEP] are masked out."""
+    # Skip if torch is not installed.
+    pytest.importorskip("torch")
+    # Import here so the rest of the file works without torch.
+    from xhate.data.dataset import HateSpeechDataset
+    # One HOF post whose last word "trash" splits into two sub-words.
+    rec = {"tokens": ["you", "are", "trash"], "label": 1, "has_rationale": True,
+           "rationale": [0, 1, 1], "rationale_soft": [0.0, 0.5, 1.0]}
+    # Build the dataset with the offline tokenizer.
+    item = HateSpeechDataset([rec], _tiny_wordpiece_tokenizer())[0]
+    # Sub-words: [CLS] you are tr ##ash [SEP]
+    assert item["input_ids"].tolist() == [2, 4, 5, 6, 7, 3]
+    # Soft rationale copied to both pieces of "trash"; specials get 0.
+    assert item["rationale"].tolist() == [0.0, 0.0, 0.5, 1.0, 1.0, 0.0]
+    # Only real sub-words count in the loss.
+    assert item["rationale_mask"].tolist() == [0, 1, 1, 1, 1, 0]
+    # Label is kept.
+    assert item["label"].item() == 1
+
+
+def test_dataset_no_rationale_and_collate_padding():
+    """Posts without a rationale are fully masked; collate pads to the longest post."""
+    # Skip if torch is not installed.
+    pytest.importorskip("torch")
+    # Import the Dataset and the collate function.
+    from xhate.data.dataset import HateSpeechDataset, collate_batch
+    # A HASOC-style post (no rationale) and a longer HateXplain-style post.
+    recs = [{"tokens": ["nice", "day"], "label": 0, "has_rationale": False, "rationale": None, "rationale_soft": None},
+            {"tokens": ["you", "are", "trash"], "label": 1, "has_rationale": True,
+             "rationale": [0, 1, 1], "rationale_soft": [0.0, 0.5, 1.0]}]
+    # Build the dataset.
+    ds = HateSpeechDataset(recs, _tiny_wordpiece_tokenizer())
+    # The post without a rationale is never used in the rationale loss.
+    assert ds[0]["rationale_mask"].sum().item() == 0
+    # Batch both posts together.
+    batch = collate_batch([ds[0], ds[1]], pad_token_id=0)
+    # Both rows padded to the longer length (6 sub-words).
+    assert batch["input_ids"].shape == (2, 6) and batch["rationale"].shape == (2, 6)
+    # Padding positions have attention 0 and rationale_mask 0.
+    assert batch["attention_mask"][0].tolist() == [1, 1, 1, 1, 0, 0]
+    assert batch["rationale_mask"][0].tolist() == [0, 0, 0, 0, 0, 0]
+    # Labels stacked in order.
+    assert batch["label"].tolist() == [0, 1]
+
+
 # ---------------------------------------------------------------- loader
 def test_load_split_roundtrip(tmp_path):
     """write_jsonl + load_split give back the same records (Hindi included)."""

@@ -47,13 +47,13 @@ def detect_encoding(path):
     """
     # Read only the first 4 bytes.
     with Path(path).open("rb") as f:
-        head = f.read(4)
+        head = f.read(4)  # 4 bytes are enough to recognise every BOM we handle
     # FF FE or FE FF = UTF-16 (Python's "utf-16" codec reads the BOM to pick the byte order).
     if head.startswith((b"\xff\xfe", b"\xfe\xff")):
-        return "utf-16"
+        return "utf-16"  # e.g. a file saved by PowerShell 5.1 with ">"
     # EF BB BF = UTF-8 with a BOM (Notepad / Excel often write this).
     if head.startswith(b"\xef\xbb\xbf"):
-        return "utf-8-sig"
+        return "utf-8-sig"  # "-sig" makes Python skip the BOM characters
     # No BOM: assume normal UTF-8.
     return "utf-8"
 
