@@ -1,0 +1,37 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Data (HASOC licence does not allow redistribution; never commit raw data) ---
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+# data/annotations/ IS committed: it holds our own hand-made rationale labels.
+
+# --- Experiment outputs / checkpoints ---
+results/*
+!results/.gitkeep
+*.pt
+*.bin
+*.safetensors
+wandb/
+runs/
+
+# --- Embeddings (large) ---
+*.vec
+embeddings/
+
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
