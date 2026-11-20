@@ -33,6 +33,12 @@ The loader **auto-detects** the format:
 
 Files without a text + label column are skipped with a warning.
 
+- **Extract the zips first.** A `.zip` left in the folder is not read (the script tells you).
+- Extracting with "Extract here" is fine: the extra `__MACOSX/` folder and `._*.tsv` files
+  (macOS metadata, not data) are ignored automatically.
+- The year in `source` comes from the folder name (`2019/`) or, if missing, from another file's
+  name in the same folder (`hasoc2019_hi_test_gold_2919.tsv`).
+
 ### HateXplain (English, with rationales)
 Download `dataset.json` and `post_id_divisions.json` from
 <https://github.com/hate-alert/HateXplain/tree/master/Data> into `data/raw/hatexplain/`.
@@ -59,6 +65,20 @@ df = load_dataframe("hasoc", "test")          # pandas DataFrame
 
 For transformers, `xhate.data.dataset.HateSpeechDataset` + `collate_batch` (needs torch) give
 `input_ids`, `attention_mask`, `label`, and sub-word-aligned `rationale` / `rationale_mask`.
+For XLM-R pass the right pad id: `functools.partial(collate_batch, pad_token_id=tokenizer.pad_token_id)`.
+
+### ⚠️ Hindi (Devanagari) tokenisation: use `tokens`, or split on spaces
+
+Many libraries split words with the regex `\w`, which does **not** match Hindi vowel signs (matras),
+so Hindi words are cut into pieces (`हरामी` → `ह`, `र`, `म`, …). We found this in end-to-end testing:
+
+| Tool | Default behaviour | Use instead |
+|---|---|---|
+| scikit-learn `TfidfVectorizer` / `CountVectorizer` | breaks Hindi words (macro-F1 on HASOC 0.753 vs **0.794**) | `TfidfVectorizer(analyzer=lambda toks: toks)` on the `tokens` column, or `analyzer=str.split` on `text` |
+| LIME `LimeTextExplainer` | explains letters like `ह`, `म` | `LimeTextExplainer(split_expression=r"\s+", bow=False)` on `text` |
+| Your own vocab (CNN / LSTM) | `re.findall(r"\w+", ...)` breaks words | use the `tokens` list as-is |
+
+`text` is always `" ".join(tokens)`, so splitting `text` on spaces gives back exactly `tokens`.
 
 ## 4. Label scheme
 

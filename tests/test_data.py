@@ -270,6 +270,44 @@ def test_dataset_no_rationale_and_collate_padding():
     assert batch["label"].tolist() == [0, 1]
 
 
+def test_load_hasoc_ignores_macos_junk_and_finds_year(tmp_path):
+    """'Extract here' of a Mac zip: __MACOSX/ and ._ files are ignored; year comes from a sibling file."""
+    # Real data folder named after the zip (no year in the folder name).
+    (tmp_path / "hindi_dataset").mkdir()
+    # Train file (no year in its name).
+    (tmp_path / "hindi_dataset" / "hindi_dataset.tsv").write_text(
+        "text_id\ttext\ttask_1\na1\ttum gadhe ho\tHOF\n", encoding="utf-8")
+    # Test file whose name contains the year.
+    (tmp_path / "hindi_dataset" / "hasoc2019_hi_test_gold_2919.tsv").write_text(
+        "text_id\ttext\ttask_1\nb1\tbakwas band karo\tHOF\n", encoding="utf-8")
+    # macOS junk: binary metadata in __MACOSX/ and a "._" file next to the data.
+    (tmp_path / "__MACOSX" / "hindi_dataset").mkdir(parents=True)
+    (tmp_path / "__MACOSX" / "hindi_dataset" / "._hindi_dataset.tsv").write_bytes(b"\x00\x05\x16\x07Mac OS X\x00\xff")
+    (tmp_path / "hindi_dataset" / "._hindi_dataset.tsv").write_bytes(b"\x00\x05\x16\x07Mac OS X\x00\xff")
+    # An unextracted zip lying around.
+    (tmp_path / "hindi_dataset.zip").write_bytes(b"PK\x03\x04")
+    # Load the folder.
+    splits, stats = load_hasoc(tmp_path)
+    # Only the two real files are used, and nothing is reported as skipped.
+    assert sorted(stats["files_used"]) == ["hasoc2019_hi_test_gold_2919.tsv", "hindi_dataset.tsv"]
+    assert stats["files_skipped"] == []
+    # The train file gets the year from its sibling's name.
+    assert splits["train"][0]["source"] == "hasoc2019/hindi_dataset.tsv"
+
+
+def test_load_hasoc_skips_unreadable_file(tmp_path):
+    """A corrupt table file is skipped with a warning instead of crashing."""
+    # A good file.
+    (tmp_path / "train.csv").write_text("text,task_1\ntum gadhe ho,HOF\n", encoding="utf-8")
+    # A "csv" that is not really a table (unbalanced quote makes pandas fail).
+    (tmp_path / "broken.csv").write_text('text,task_1\n"never closed,HOF\n', encoding="utf-8")
+    # Loading warns but still returns the good file's row.
+    with pytest.warns(UserWarning):
+        splits, stats = load_hasoc(tmp_path)
+    # The good row is there.
+    assert len(splits["train"]) == 1
+
+
 # ---------------------------------------------------------------- loader
 def test_load_split_roundtrip(tmp_path):
     """write_jsonl + load_split give back the same records (Hindi included)."""

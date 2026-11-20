@@ -98,19 +98,58 @@ def _guess_split(path):
 
 
 def _guess_source(path, raw_dir):
-    """A short label for where a row came from, e.g. 'hasoc2019/hindi_dataset.tsv'."""
+    """A short label for where a row came from, e.g. 'hasoc2019/hindi_dataset.tsv'.
+
+    Q: How is the year found?
+    A: First from the path ("2019/hindi_dataset.tsv"). If the path has no year (e.g. the
+       zip was extracted as "hindi_dataset/hindi_dataset.tsv"), from the name of another
+       data file in the same folder ("hasoc2019_hi_test_gold_2919.tsv" -> 2019).
+    """
     # Path relative to data/raw/hasoc/, with forward slashes.
     rel = path.relative_to(raw_dir).as_posix()
     # Look for a year such as 2019 / 2020 / 2021 anywhere in the path.
     year = re.search(r"20\d\d", rel)
+    # No year in the path: look at the names of the other data files in the same folder.
+    if year is None:
+        # Names of sibling data files, in a stable order.
+        siblings = sorted(p.name for p in path.parent.iterdir() if _is_data_file(p))
+        # The first year that appears in any sibling name (or None).
+        year = next((m for m in (re.search(r"20\d\d", n) for n in siblings) if m), None)
     # Prefix the year if we found one.
     return f"hasoc{year.group(0)}/{path.name}" if year else f"hasoc/{rel}"
 
 
+def _is_data_file(path):
+    """True for a real HASOC table; False for zips, folders and macOS junk files.
+
+    Q: What is macOS junk?
+    A: Zips made on a Mac contain a "__MACOSX/" folder and "._name.tsv" files with
+       file metadata, not data. "Extract here" on Windows creates them too. Reading
+       them only produces confusing warnings, so we ignore them.
+    """
+    # Must be a file, not a folder.
+    if not path.is_file():
+        return False  # a folder
+    # Ignore anything inside a __MACOSX folder.
+    if "__MACOSX" in path.parts:
+        return False  # macOS metadata folder
+    # Ignore AppleDouble metadata files ("._hindi_dataset.tsv").
+    if path.name.startswith("._"):
+        return False  # macOS metadata file
+    # Keep only the table formats we can read.
+    return path.suffix.lower() in SUPPORTED_EXTENSIONS
+
+
 def read_hasoc_file(path, raw_dir):
     """Read ONE HASOC file and return a list of processed records (or [] if unusable)."""
-    # Load the table.
-    df = _read_table(path)
+    try:
+        # Load the table.
+        df = _read_table(path)
+    except Exception as err:  # noqa: BLE001 - any read error means "this file is unusable"
+        # A broken or non-table file must not crash the whole preparation: warn and skip it.
+        warnings.warn(f"Skipping {path.name}: could not read it ({type(err).__name__}: {err})")
+        # Nothing usable from this file.
+        return []
     # Find the text column.
     text_col = _find_column(df.columns, TEXT_COLUMNS)
     # Find the HOF/NOT label column.
@@ -191,8 +230,8 @@ def load_hasoc(raw_dir):
     """
     # Folder with the HASOC files.
     raw_dir = Path(raw_dir)
-    # All supported files, searched recursively, in a stable (sorted) order.
-    files = sorted(p for p in raw_dir.rglob("*") if p.suffix.lower() in SUPPORTED_EXTENSIONS)
+    # All real data files (no zips, no macOS junk), searched recursively, in a stable order.
+    files = sorted(p for p in raw_dir.rglob("*") if _is_data_file(p))
     # Records per split.
     splits = {"train": [], "test": []}
     # Statistics for the summary.

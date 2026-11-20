@@ -116,8 +116,14 @@ def prepare_hasoc(args):
     splits, stats = load_hasoc(raw)
     # Stop if nothing usable was found.
     if not splits["train"]:
+        # Zip files that were never extracted are the most common reason.
+        zips = sorted(p.name for p in raw.rglob("*.zip"))
         # Explain why.
         print(f"[hasoc] no usable training rows found in {raw} - skipping")
+        # Point at the zips, if any.
+        if zips:
+            print(f"[hasoc] found zip file(s) {zips}: extract them first (7-Zip; if it asks for "  # how to fix it
+                  f"a password, use the one from the HASOC registration), then run this script again")
         # Nothing produced.
         return None
     # No official test file -> carve one out of train.
@@ -144,6 +150,12 @@ def prepare_hatexplain(args):
     if not (raw / "dataset.json").exists() or not (raw / "post_id_divisions.json").exists():
         # Tell the user what to do.
         print(f"[hatexplain] dataset.json / post_id_divisions.json missing in {raw} - skipping")
+        # Browsers save a second download as "dataset (1).json": list the .json files found.
+        found = sorted(p.name for p in raw.glob("*.json")) if raw.exists() else []
+        # Only print the hint if there is something to rename.
+        if found:
+            print(f"[hatexplain] .json files found: {found} - rename them to exactly "  # rename hint
+                  f"'dataset.json' and 'post_id_divisions.json'")
         # Nothing produced.
         return None
     # Read, vote and aggregate rationales.
