@@ -53,5 +53,7 @@ Team: Anushri Mishra, Manoj Dewda, Kuldeep Saraswat, Mausam Kumari.
 ## Conventions
 
 - Branches: `task1/<short-name>`, `task2/...`, and so on, or `fix/...`. Never work directly on `main`.
-- Every change goes through a Pull Request into `main`, reviewed by at least one other member.
+- When a branch is ready, it can be merged into `main` directly. A Pull Request and review are
+  optional (recommended for big changes, or changes that affect other members' tasks).
+- Before merging into `main`: run `pytest` and make sure all tests pass.
 - Commit messages are short and imperative, e.g. `Add HASOC loader`.

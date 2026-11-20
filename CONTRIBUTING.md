@@ -18,10 +18,22 @@ git commit -m "Add BiLSTM attention baseline"
 git push -u origin task2/bilstm-baseline
 ```
 
-## 4. Open a Pull Request
-- Open it on GitHub into `main` and fill in the PR template.
-- Ask at least **one** other member to review it.
-- Run `pytest` before you ask for a review.
+## 4. Merge into `main`
+You can merge your branch into `main` **directly**. A Pull Request and review are optional.
+
+1. Run `pytest` and make sure all tests pass.
+2. Merge and push:
+```bash
+git checkout main
+git pull
+git merge task2/bilstm-baseline
+git push origin main
+```
+3. Tell the team what you merged (comment on your Issue), especially if it changes something
+   other members use (data format, model interface, config files).
+
+**Optional:** for big changes, or changes that affect other members' tasks, you can still open a
+Pull Request on GitHub into `main` (fill in the PR template) and ask a member to review it.
 
 ## Do not commit
 - Datasets (`data/raw/`, `data/processed/`). The HASOC licence forbids sharing them.
