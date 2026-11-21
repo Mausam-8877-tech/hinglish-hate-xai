@@ -69,6 +69,33 @@ python scripts/train.py --config configs/baseline_cnn.yaml      # -> results/bas
 python scripts/train.py --config configs/baseline_bilstm.yaml   # -> results/baseline_bilstm/
 ```
 
+### Transformers + rationale supervision (issue #3)
+
+Test = HASOC 2019 Hindi test, mean ± std over seeds 42, 43, 44. "+ HX" = HateXplain train
+posts added to training (val/test stay HASOC). λ = weight of the rationale loss.
+
+| Model | Train data | λ | Accuracy | Macro-F1 | Config |
+|---|---|---|---|---|---|
+| XLM-R base | HASOC | – | _todo_ | _todo_ | `configs/xlmr_vanilla.yaml` |
+| MuRIL base | HASOC | – | _todo_ | _todo_ | `configs/muril_vanilla.yaml` |
+| MuRIL base (control) | HASOC + HX | 0 | _todo_ | _todo_ | `configs/muril_hx_lambda0.yaml` |
+| MuRIL base + rationale | HASOC + HX | 0.01 / 0.1 / 1 / 10 | _todo_ | _todo_ | `configs/muril_rationale.yaml` |
+
+Needs a GPU (Colab / Kaggle). Reproduce:
+
+```bash
+python scripts/prepare_data.py                      # HASOC + HateXplain
+python scripts/run_seeds.py --config configs/muril_vanilla.yaml
+python scripts/run_seeds.py --config configs/xlmr_vanilla.yaml
+python scripts/run_seeds.py --config configs/muril_hx_lambda0.yaml
+for L in 0.01 0.1 1 10; do
+  python scripts/run_seeds.py --config configs/muril_rationale.yaml --set loss.lambda=$L
+done
+```
+
+Each model returns its [CLS] attention for explanation:
+`TransformerClassifier.get_attention(input_ids, attention_mask)` → `(B, L)`.
+
 ## Tasks
 
 The work is split into four tasks (Member 1 – 4). **Any member can take any one task.**

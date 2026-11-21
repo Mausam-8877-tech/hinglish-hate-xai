@@ -1,0 +1,32 @@
+# Member 3 - MuRIL on HASOC + HateXplain with RATIONALE SUPERVISION:
+#   loss = CE + lambda * CE(human rationale, [CLS] attention)   (only on posts with a rationale)
+# Lambda sweep:  python scripts/run_seeds.py --config configs/muril_rationale.yaml --set loss.lambda=0.1
+
+run_name: muril_rationale
+seed: 42                  # use scripts/run_seeds.py for seeds 42, 43, 44
+
+data:
+  dataset: [hasoc, hatexplain]   # TRAIN = both; val / test = HASOC only
+  eval_dataset: hasoc             # model selection and test scores on Hinglish
+  soft_rationale: true            # soft targets = annotator agreement; false = hard 0/1
+  max_length: 128         # sub-words per post (longer posts are truncated)
+
+model:
+  type: transformer
+  name: google/muril-base-cased   # HuggingFace hub name (or a local folder)
+  dropout: 0.1                    # dropout before the classification layer (BERT default)
+  attention_layer: -1             # [CLS] attention of the LAST layer is exposed / supervised
+
+loss:
+  lambda: 1.0             # sweep 0.01, 0.1, 1, 10 with --set loss.lambda=...
+
+train:
+  batch_size: 16
+  epochs: 5               # fine-tuning converges in a few epochs
+  lr: 0.00002             # 2e-5, the standard BERT fine-tuning learning rate
+  warmup_ratio: 0.1       # LR rises over the first 10% of steps, then decays linearly
+  weight_decay: 0.01      # AdamW decoupled weight decay (not on biases / LayerNorm)
+  patience: 2             # stop after 2 epochs without a better val macro-F1
+  grad_clip: 1.0          # max gradient norm (BERT recipe)
+  class_weights: true     # same as the baselines, for a fair comparison
+  device: auto

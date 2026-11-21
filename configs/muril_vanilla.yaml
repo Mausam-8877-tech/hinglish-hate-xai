@@ -1,0 +1,30 @@
+# Member 3 - MuRIL fine-tuned on HASOC only ("vanilla", no rationale supervision).
+# Needs a GPU (Colab / Kaggle).  Run:  python scripts/train.py --config configs/muril_vanilla.yaml
+# Output: results/muril_vanilla/  (git-ignored; share best.pt on Drive)
+
+run_name: muril_vanilla
+seed: 42                  # use scripts/run_seeds.py for seeds 42, 43, 44
+
+data:
+  dataset: hasoc          # train / val / test all from HASOC
+  max_length: 128         # sub-words per post (longer posts are truncated)
+
+model:
+  type: transformer
+  name: google/muril-base-cased   # HuggingFace hub name (or a local folder)
+  dropout: 0.1                    # dropout before the classification layer (BERT default)
+  attention_layer: -1             # [CLS] attention of the LAST layer is exposed / supervised
+
+loss:
+  lambda: 0.0             # no rationale loss (HASOC has no rationales anyway)
+
+train:
+  batch_size: 16
+  epochs: 5               # fine-tuning converges in a few epochs
+  lr: 0.00002             # 2e-5, the standard BERT fine-tuning learning rate
+  warmup_ratio: 0.1       # LR rises over the first 10% of steps, then decays linearly
+  weight_decay: 0.01      # AdamW decoupled weight decay (not on biases / LayerNorm)
+  patience: 2             # stop after 2 epochs without a better val macro-F1
+  grad_clip: 1.0          # max gradient norm (BERT recipe)
+  class_weights: true     # same as the baselines, for a fair comparison
+  device: auto

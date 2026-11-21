@@ -47,6 +47,12 @@ A: Adam adapts the step size for every weight on its own, so it trains well
    with the default learning rate (1e-3) and needs little tuning. It is the
    usual optimiser for CNN / LSTM text classifiers.
 
+Q: What are the optional ``optimizer`` / ``scheduler`` arguments? (added by Member 3)
+A: Transformers are fine-tuned with AdamW (decoupled weight decay) and a learning rate
+   that warms up and then decays linearly, not with plain Adam at 1e-3. ``fit`` accepts
+   a ready-made optimizer and a per-step LR scheduler; when they are not given it
+   behaves exactly as before (Adam with ``lr`` and ``weight_decay``).
+
 Q: Why optimizer.zero_grad() at the start of every step?
 A: PyTorch ADDS new gradients to the old ones. Without clearing them, every
    step would also apply the gradients of all earlier batches.
@@ -169,7 +175,8 @@ def predict(model, loader, device, loss_fn=None):
 
 
 def fit(model, train_loader, val_loader, device, epochs=20, lr=1e-3, weight_decay=0.0,
-        patience=3, grad_clip=5.0, loss_fn=None, checkpoint_path=None, log=print):
+        patience=3, grad_clip=5.0, loss_fn=None, checkpoint_path=None, log=print,
+        optimizer=None, scheduler=None):
     """Train with early stopping on validation macro-F1 and keep the best weights.
 
     Args:
@@ -184,6 +191,8 @@ def fit(model, train_loader, val_loader, device, epochs=20, lr=1e-3, weight_deca
         loss_fn: ``loss_fn(logits, batch)``; default = plain cross-entropy.
         checkpoint_path: where to save the best weights (None = keep in memory only).
         log: function used to print progress (``print`` by default).
+        optimizer: a torch optimizer to use instead of Adam (``lr``/``weight_decay`` are then ignored).
+        scheduler: an LR scheduler stepped after EVERY optimizer step (e.g. linear warmup), or None.
 
     Returns:
         dict with "history" (one entry per epoch), "best_epoch" and "best_val" (metrics).
@@ -192,8 +201,9 @@ def fit(model, train_loader, val_loader, device, epochs=20, lr=1e-3, weight_deca
     loss_fn = loss_fn or default_loss_fn()
     # Put the model's weights on the device.
     model.to(device)
-    # Adam optimiser over all the model's weights (see Q&A).
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    # Adam optimiser over all the model's weights (see Q&A), unless the caller gave one.
+    if optimizer is None:
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     # Best validation macro-F1 so far (-1 so the first epoch always counts as better).
     best_f1 = -1.0
     # Best epoch number, its val metrics, and a copy of its weights.
@@ -226,6 +236,9 @@ def fit(model, train_loader, val_loader, device, epochs=20, lr=1e-3, weight_deca
                 nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
             # Update the weights one step against the gradient.
             optimizer.step()
+            # Move the learning rate one step along its schedule (if there is one).
+            if scheduler is not None:
+                scheduler.step()
             # Add to the running loss (weighted by batch size).
             running += loss.item() * logits.size(0)
             # Count the posts.
