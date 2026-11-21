@@ -80,8 +80,8 @@ class CNNClassifier(nn.Module):
         # One convolution per window size. Conv1d slides over the words (the "time" axis).
         self.convs = nn.ModuleList(
             nn.Conv1d(in_channels=embed_dim, out_channels=num_filters, kernel_size=k)  # k-word window
-            for k in self.kernel_sizes
-        )
+            for k in self.kernel_sizes  # e.g. 3 convolutions for kernel_sizes (3, 4, 5)
+        )  # ModuleList registers the convolutions so their weights are trained and saved
         # Dropout: randomly zeroes features during training to reduce overfitting.
         self.dropout = nn.Dropout(dropout)
         # Final layer: all pooled features -> class scores.
@@ -97,9 +97,11 @@ class CNNClassifier(nn.Module):
         # A post shorter than the widest window gives no convolution output at all,
         # so pad the batch on the right up to the widest window. <pad> vectors are
         # zeros, so this does not change the result.
-        max_k = max(self.kernel_sizes)
+        max_k = max(self.kernel_sizes)  # the widest window, e.g. 5
+        # Only needed when the whole batch is shorter than the widest window.
         if input_ids.size(1) < max_k:
             extra = max_k - input_ids.size(1)  # how many <pad> columns are missing
+            # (0, extra) = add 0 columns on the left and ``extra`` on the right.
             input_ids = nn.functional.pad(input_ids, (0, extra), value=PAD_ID)
         # Look up the word vectors: (B, L, E).
         emb = self.embedding(input_ids)
@@ -107,6 +109,7 @@ class CNNClassifier(nn.Module):
         emb = emb.transpose(1, 2)
         # Pooled features from every window size.
         pooled = []
+        # Go through each window size k with its convolution.
         for k, conv in zip(self.kernel_sizes, self.convs):
             # Convolution + ReLU: (B, F, L - k + 1); position t covers words t .. t+k-1.
             feats = torch.relu(conv(emb))
@@ -152,7 +155,8 @@ class BiLSTMClassifier(nn.Module):
         # The BiLSTM. batch_first=True means tensors are (B, L, ...).
         # Dropout BETWEEN layers only makes sense with 2+ layers (PyTorch warns otherwise).
         self.lstm = nn.LSTM(embed_dim, hidden_dim, num_layers=num_layers, batch_first=True,
-                            bidirectional=True, dropout=dropout if num_layers > 1 else 0.0)
+                            bidirectional=True,  # read the post in both directions
+                            dropout=dropout if num_layers > 1 else 0.0)  # between-layer dropout
         # Attention: score_i = v . tanh(W h_i + b)  (additive attention).
         self.attn_proj = nn.Linear(2 * hidden_dim, 2 * hidden_dim)  # W and b
         self.attn_vector = nn.Linear(2 * hidden_dim, 1, bias=False)  # v
@@ -177,10 +181,11 @@ class BiLSTMClassifier(nn.Module):
         # Run the LSTM. h_n: final hidden state of every layer and direction.
         packed_out, (h_n, _) = self.lstm(packed)
         # Unpack back to (B, L, 2H). total_length keeps L equal to the input length.
-        outputs, _ = pad_packed_sequence(packed_out, batch_first=True,
-                                         total_length=input_ids.size(1))
+        outputs, _ = pad_packed_sequence(packed_out, batch_first=True,  # back to (B, L, 2H)
+                                         total_length=input_ids.size(1))  # padding positions become zeros
         # Attention weights (None if attention is off).
         weights = None
+        # Attention pooling (the default).
         if self.use_attention:
             # One score per word: (B, L).
             scores = self.attn_vector(torch.tanh(self.attn_proj(outputs))).squeeze(-1)
@@ -190,6 +195,7 @@ class BiLSTMClassifier(nn.Module):
             weights = torch.softmax(scores, dim=1)  # (B, L)
             # Weighted average of the hidden states = the sentence vector: (B, 2H).
             sentence = torch.bmm(weights.unsqueeze(1), outputs).squeeze(1)
+        # No attention: use the final hidden states instead.
         else:
             # Last layer's forward state (h_n[-2]) and backward state (h_n[-1]), joined: (B, 2H).
             sentence = torch.cat([h_n[-2], h_n[-1]], dim=1)
@@ -218,6 +224,7 @@ def build_model(model_cfg, vocab_size):
     classes = {"cnn": CNNClassifier, "bilstm": BiLSTMClassifier}
     # Unknown type: say which ones exist.
     if model_type not in classes:
-        raise ValueError(f"unknown baseline type {model_type!r}; expected one of {sorted(classes)}")
+        raise ValueError(f"unknown baseline type {model_type!r}; expected one of {sorted(classes)}")  # clear message
+    # Create the model: the remaining keys become keyword arguments (**params).
     # YAML gives lists; the CNN is happy with a list for kernel_sizes.
     return classes[model_type](vocab_size=vocab_size, **params)

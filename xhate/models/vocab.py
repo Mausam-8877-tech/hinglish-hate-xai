@@ -174,7 +174,7 @@ class WordDataset(Dataset):
         return {
             "input_ids": torch.tensor(ids, dtype=torch.long),         # (len,)
             "label": torch.tensor(rec["label"], dtype=torch.long),   # ()
-        }
+        }  # one item = one post
 
 
 def collate_words(items):
@@ -200,4 +200,4 @@ def collate_words(items):
         "input_ids": input_ids,                                   # (B, L)
         "attention_mask": attention_mask,                         # (B, L)
         "label": torch.stack([item["label"] for item in items]),  # (B,)
-    }
+    }  # same keys as Member 1's transformer batch

@@ -61,8 +61,9 @@ def load_config(path, overrides=None):
         # Walk down the dict along the dotted path, creating levels if needed.
         node = cfg
         parts = key.strip().split(".")  # "train.lr" -> ["train", "lr"]
+        # Every part except the last is a section ("train").
         for part in parts[:-1]:
-            node = node.setdefault(part, {})  # go one level deeper
+            node = node.setdefault(part, {})  # go one level deeper (create it if missing)
         # Parse the value as YAML so numbers / bools / lists get the right type.
         node[parts[-1]] = yaml.safe_load(value)
     # Return the final config.
@@ -75,7 +76,7 @@ def save_config(cfg, path):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     # sort_keys=False keeps the order of the original file.
     with Path(path).open("w", encoding="utf-8") as f:
-        yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
+        yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)  # allow_unicode: keep Hindi readable
 
 
 def set_seed(seed):
@@ -107,11 +108,11 @@ def save_json(obj, path):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     # ensure_ascii=False keeps Devanagari as real characters instead of \\uXXXX.
     with Path(path).open("w", encoding="utf-8") as f:
-        json.dump(obj, f, indent=2, ensure_ascii=False)
+        json.dump(obj, f, indent=2, ensure_ascii=False)  # indent=2: human-readable
 
 
 def load_json(path):
     """Read a UTF-8 JSON file."""
     # Open and parse.
     with Path(path).open("r", encoding="utf-8") as f:
-        return json.load(f)
+        return json.load(f)  # JSON -> dict / list
