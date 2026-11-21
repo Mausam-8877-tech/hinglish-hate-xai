@@ -1,0 +1,29 @@
+# Member 2 - Kim (2014) CNN baseline on HASOC.
+# Run:  python scripts/train.py --config configs/baseline_cnn.yaml
+# Output: results/baseline_cnn/  (git-ignored)
+
+run_name: baseline_cnn
+seed: 42                  # fixes init, dropout and shuffling -> repeatable runs
+
+data:
+  dataset: hasoc          # "hasoc" or "hatexplain" (Member 1's processed files)
+  max_length: 100         # posts are cut to this many words
+  min_freq: 2             # words seen fewer times in train become <unk>
+  max_vocab: 30000        # at most this many words (most frequent first)
+
+model:
+  type: cnn
+  embed_dim: 300          # size of each word vector (Kim 2014 used 300)
+  num_filters: 100        # filters PER window size
+  kernel_sizes: [3, 4, 5] # window sizes in words (trigrams .. 5-grams)
+  dropout: 0.5            # Kim 2014 value
+
+train:
+  batch_size: 32
+  epochs: 30              # maximum; early stopping usually stops much earlier
+  lr: 0.001               # Adam learning rate
+  weight_decay: 0.0       # L2 penalty (0 = off)
+  patience: 4             # stop after 4 epochs without a better val macro-F1
+  grad_clip: 5.0          # maximum gradient norm
+  class_weights: true     # "balanced" weights against class imbalance
+  device: auto            # GPU if available, else CPU

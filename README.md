@@ -51,6 +51,24 @@ hinglish-hate-xai/
     └── evaluation/       classification + faithfulness metrics  (Member 4)
 ```
 
+## Results
+
+Test set = the official HASOC 2019 Hindi test file (1,314 posts). Models are selected on validation
+macro-F1 (early stopping). Seed 42, trained on CPU.
+
+| Model | Train data | Test data | Accuracy | Macro-F1 | Config |
+|---|---|---|---|---|---|
+| CNN (Kim 2014) | HASOC 2019 Hindi | HASOC 2019 Hindi | 0.7770 | 0.7765 | `configs/baseline_cnn.yaml` |
+| BiLSTM + attention | HASOC 2019 Hindi | HASOC 2019 Hindi | 0.8044 | 0.8016 | `configs/baseline_bilstm.yaml` |
+
+Reproduce:
+
+```bash
+python scripts/prepare_data.py --datasets hasoc
+python scripts/train.py --config configs/baseline_cnn.yaml      # -> results/baseline_cnn/
+python scripts/train.py --config configs/baseline_bilstm.yaml   # -> results/baseline_bilstm/
+```
+
 ## Tasks
 
 The work is split into four tasks (Member 1 – 4). **Any member can take any one task.**
@@ -69,3 +87,5 @@ The actual work is tracked as GitHub Issues. See [docs/TASKS.md](docs/TASKS.md).
 
 1. Mathew et al. *HateXplain: A Benchmark Dataset for Explainable Hate Speech Detection.* AAAI 2021. <https://arxiv.org/abs/2012.10289>
 2. HASOC shared task. <https://hasocfire.github.io>
+3. Kim. *Convolutional Neural Networks for Sentence Classification.* EMNLP 2014. <https://arxiv.org/abs/1408.5882>
+4. Yang et al. *Hierarchical Attention Networks for Document Classification.* NAACL 2016.

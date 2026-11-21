@@ -1,0 +1,31 @@
+# Member 2 - BiLSTM + attention baseline on HASOC.
+# The attention weights can be used as explanations (Member 4).
+# Run:  python scripts/train.py --config configs/baseline_bilstm.yaml
+# Output: results/baseline_bilstm/  (git-ignored)
+
+run_name: baseline_bilstm
+seed: 42                  # fixes init, dropout and shuffling -> repeatable runs
+
+data:
+  dataset: hasoc          # "hasoc" or "hatexplain" (Member 1's processed files)
+  max_length: 100         # posts are cut to this many words
+  min_freq: 2             # words seen fewer times in train become <unk>
+  max_vocab: 30000        # at most this many words (most frequent first)
+
+model:
+  type: bilstm
+  embed_dim: 300          # size of each word vector
+  hidden_dim: 128         # LSTM size per direction (output = 256)
+  num_layers: 1           # stacked LSTM layers
+  dropout: 0.5            # on embeddings and before the output layer
+  use_attention: true     # false = use the last hidden states instead
+
+train:
+  batch_size: 32
+  epochs: 30              # maximum; early stopping usually stops much earlier
+  lr: 0.001               # Adam learning rate
+  weight_decay: 0.0       # L2 penalty (0 = off)
+  patience: 4             # stop after 4 epochs without a better val macro-F1
+  grad_clip: 5.0          # LSTMs can have exploding gradients; clip the norm
+  class_weights: true     # "balanced" weights against class imbalance
+  device: auto            # GPU if available, else CPU
