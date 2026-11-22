@@ -41,6 +41,7 @@ hinglish-hate-xai/
 │   ├── prepare_data.py
 │   ├── train.py
 │   ├── explain.py
+│   ├── explanation_table.py
 │   └── sample_for_annotation.py
 ├── tests/                pytest tests
 └── xhate/                the Python package
@@ -168,6 +169,45 @@ Run folders are named `<run_name>_seed<N>`, plus `_lam<λ>` for the rationale ru
 
 Each model returns its [CLS] attention for explanation:
 `TransformerClassifier.get_attention(input_ids, attention_mask)` → `(B, L)`.
+
+### Explainability + faithfulness (issue #4)
+
+**Methods.** Every trained run is explained at the word level with:
+
+- **attention**: [CLS] attention of the supervised layer (mean over heads), summed from sub-words back
+  to words and re-normalised; for the BiLSTM, its additive attention. The CNN has no attention.
+- **LIME**: one weight per word position (`split_expression=r"\s+"`, `bow=False`, removed words deleted).
+- **random**: a seeded random score per word, the sanity baseline every method must beat.
+
+**Metrics.**
+
+- Faithfulness (ERASER, DeYoung et al. 2020), w.r.t. the predicted class, averaged over the top
+  1 / 5 / 10 / 20 / 50 % of words: **comprehensiveness ↑** = p(x) − p(x without top words),
+  **sufficiency ↓** = p(x) − p(only top words). Reported on all posts and on posts predicted HOF.
+- Plausibility against human rationales: **token F1 ↑** (top-k words, k = average human rationale
+  length) and **AUPRC ↑**. English: HateXplain test rationales. Hinglish: our own annotations of
+  ~250 HASOC test HOF posts ([data/annotations/](data/annotations/README.md)).
+
+**Run.**
+
+```bash
+python scripts/explain.py --run results/muril_vanilla_seed42                        # Hinglish test posts
+python scripts/explain.py --run results/muril_vanilla_seed42 --dataset hatexplain   # English, with rationales
+# -> results/<run>/explain_<dataset>_test/{metrics.json, explanations.jsonl, report.html}
+python scripts/explanation_table.py --results-dir results --dataset hasoc           # final table (mean ± std over seeds)
+```
+
+Explain every run with the same options (`--lime-samples`, `--seed`, `--max-posts`), so only the model differs.
+
+Hinglish rationale annotation: `python scripts/sample_for_annotation.py` (makes 4 sheets),
+then `python scripts/sample_for_annotation.py --collect` → `data/annotations/hasoc_rationales.jsonl`.
+
+**Results: vanilla vs rationale-supervised.** *Pending: needs the trained checkpoints (Kaggle) and the
+finished Hinglish annotations. Paste the output of `scripts/explanation_table.py` here.*
+
+| Configuration | λ | Seeds | Method | Comprehensiveness ↑ | Sufficiency ↓ | Token F1 ↑ | AUPRC ↑ |
+|---|---|---|---|---|---|---|---|
+| | | | | | | | |
 
 ## Tasks
 

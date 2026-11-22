@@ -16,6 +16,8 @@ data/raw/*
 data/processed/*
 !data/processed/.gitkeep
 # data/annotations/ IS committed: it holds our own hand-made rationale labels.
+# ...except the annotation sheets, which contain HASOC post text.
+data/annotations/sheets/
 
 # --- Experiment outputs / checkpoints ---
 results/*
