@@ -202,12 +202,34 @@ Explain every run with the same options (`--lime-samples`, `--seed`, `--max-post
 Hinglish rationale annotation: `python scripts/sample_for_annotation.py` (makes 4 sheets),
 then `python scripts/sample_for_annotation.py --collect` → `data/annotations/hasoc_rationales.jsonl`.
 
-**Results: vanilla vs rationale-supervised.** *Pending: needs the trained checkpoints (Kaggle) and the
-finished Hinglish annotations. Paste the output of `scripts/explanation_table.py` here.*
+**Results: baselines (done).** HASOC 2019 Hindi test set, all 1,314 posts, seed 42, 500 LIME
+samples per post, CPU. The models were retrained with their configs for this (BiLSTM test macro-F1
+0.8016, the same as above; CNN 0.7740, slightly below the 0.7765 above, from CPU/library differences).
+Plausibility is not available yet: HASOC has no rationales until our annotations are collected.
+Per-configuration CSV: [`docs/results/explanations_hasoc.csv`](docs/results/explanations_hasoc.csv).
 
-| Configuration | λ | Seeds | Method | Comprehensiveness ↑ | Sufficiency ↓ | Token F1 ↑ | AUPRC ↑ |
-|---|---|---|---|---|---|---|---|
-| | | | | | | | |
+| Model | Method | Comprehensiveness ↑ | Sufficiency ↓ | Comp. (pred. HOF) ↑ | Suff. (pred. HOF) ↓ |
+|---|---|---|---|---|---|
+| BiLSTM + attention | attention | 0.1630 | 0.1116 | 0.3913 | −0.0388 |
+| BiLSTM + attention | LIME | **0.3800** | **−0.1016** | **0.5127** | **−0.0949** |
+| BiLSTM + attention | random | 0.0316 | 0.2153 | 0.0541 | 0.2779 |
+| CNN (Kim 2014) | LIME | **0.4328** | **−0.0688** | **0.4523** | **−0.0677** |
+| CNN (Kim 2014) | random | 0.0373 | 0.2515 | 0.0416 | 0.2773 |
+
+- Both methods beat the random baseline by a wide margin, so the explanations carry real information
+  about the models.
+- LIME is more faithful than the BiLSTM's attention: deleting LIME's top words lowers the model's
+  confidence more than twice as much (0.38 vs 0.16). This matches "Attention is not Explanation"
+  (Jain & Wallace, 2019): attention points in the right direction but is not the most faithful
+  explanation. Attention does much better on posts predicted HOF (0.39) than on all posts.
+- LIME's sufficiency is negative: the model is *more* confident on LIME's top words alone than on the
+  full post, so the remaining words were pulling it towards the other class.
+- Single seed, so no ± yet. The numbers measure the baselines only; they say nothing yet about
+  rationale supervision.
+
+**Results: vanilla vs rationale-supervised transformers.** *Pending: needs the trained MuRIL / XLM-R
+checkpoints (Kaggle run folders) and the finished Hinglish annotations. Run `scripts/explain.py` on every
+run, then paste the output of `scripts/explanation_table.py` here.*
 
 ## Tasks
 
