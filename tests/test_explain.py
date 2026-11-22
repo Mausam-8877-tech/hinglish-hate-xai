@@ -333,21 +333,33 @@ def test_annotation_sheets_round_trip(tmp_path):
     # Making sheets again without --force refuses to overwrite filled work.
     with pytest.raises(SystemExit):
         sfa.main(["--n", "10"] + common)
-    # Member 1 marks the word "gaddar" in their first post.
+    # LLM suggestions: word 0 ("ye", wrong) for every post; pre-fill the sheets with them.
+    suggestions = tmp_path / "sugg.jsonl"
+    suggestions.write_text("".join(json.dumps({"id": r["id"], "suggestion": "0"}) + "\n"
+                                   for sheet in rows for r in sheet), encoding="utf-8")
+    assert sfa.main(["--prefill", "--suggestions", str(suggestions)] + common) == 10
+    rows = [sfa.read_sheet(p) for p in paths]
+    assert rows[0][0]["llm_suggestion"] == "0" and rows[0][0]["rationale"] == "0"
+    # Nothing is reviewed yet -> nothing is collected (an LLM suggestion is not a human rationale).
+    assert sfa.main(["--collect"] + common) == []
+    # Member 1 reviews their first post: corrects the suggestion to the word "gaddar", writes "yes".
     first = rows[0][0]
     position = first["numbered_words"].split(" | ").index(
         next(w for w in first["numbered_words"].split(" | ") if w.endswith("=gaddar")))
-    rows[0][0]["rationale"] = str(position)
-    with paths[0].open("w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=sfa.COLUMNS)
-        writer.writeheader()
-        writer.writerows(rows[0])
+    rows[0][0]["rationale"], rows[0][0]["reviewed"] = str(position), "yes"
+    # Member 2 accepts their first suggestion unchanged.
+    rows[1][0]["reviewed"] = "Yes"
+    sfa.write_sheet(paths[0], rows[0])
+    sfa.write_sheet(paths[1], rows[1])
     collected = sfa.main(["--collect"] + common)
-    assert len(collected) == 1 and "text" not in collected[0]  # licence: no text in the committed file
+    assert len(collected) == 2 and "text" not in collected[0]  # licence: no text in the committed file
+    # The original suggestion and whether the reviewer changed it are kept (anchoring check).
+    assert collected[0]["changed_by_reviewer"] and not collected[1]["changed_by_reviewer"]
+    assert collected[0]["pre_annotated"] == "llm" and collected[0]["llm_rationale"][0] == 1
     # Attach to the processed posts: the marked word is "gaddar".
     records = load_split("hasoc", "test", processed)
-    assert attach_annotations(records, load_annotations(out)) == 1
-    rec = next(r for r in records if r.get("annotator"))
+    assert attach_annotations(records, load_annotations(out)) == 2
+    rec = next(r for r in records if r.get("annotator") == "member1")
     assert rec["has_rationale"] and rec["tokens"][rec["rationale"].index(1)] == "gaddar"
 
 

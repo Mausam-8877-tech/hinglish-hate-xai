@@ -1,38 +1,63 @@
 # Hinglish rationale annotations
 
-Our own word-level rationales for ~250 HOF posts of the HASOC test set (issue #4). HASOC has
+Our own word-level rationales for 250 HOF posts of the HASOC 2019 Hindi test set (issue #4). HASOC has
 labels but no rationales, so these are what plausibility on **code-mixed** text is measured against.
+
+**Method: LLM pre-annotation + human review.** An LLM (Claude Opus 5.5) suggested the rationale words
+for every post (`llm_suggestions.jsonl`). Each team member then reviews their own sheet: checks every
+row, corrects the words where needed and marks the row `reviewed = yes`. Only reviewed rows become
+annotations. The original suggestion is stored next to the final mask, so we can report how often
+reviewers changed it. Report it as: *"rationales pre-annotated with an LLM and verified by the four
+team members"*.
 
 | File | Committed? | What it is |
 |---|---|---|
-| `sheets/member1.csv` … `member4.csv` | **No** (git-ignored, contains HASOC text) | one sheet per member to fill in |
-| `hasoc_rationales.jsonl` | **Yes** | collected result: post id, token count, 0/1 mask, annotator. No text. |
+| `sheets/member1.csv` … `member4.csv` | **No** (git-ignored, contains HASOC text) | one sheet per member to review |
+| `llm_suggestions.jsonl` | Yes | the LLM's suggested word numbers per post id (no text) |
+| `hasoc_rationales.jsonl` | Yes | collected result: post id, token count, final 0/1 mask, reviewer, LLM mask, changed flag. No text. |
 
-## Workflow
+## Who reviews which sheet
 
-```bash
-python scripts/sample_for_annotation.py             # 1. make the 4 sheets (seed 42, same for everyone)
-# 2. each member fills the "rationale" column of their own sheet and saves it as CSV (UTF-8)
-python scripts/sample_for_annotation.py --collect   # 3. -> hasoc_rationales.jsonl, then commit it
-```
+| Sheet | Posts | Reviewer |
+|---|---|---|
+| `member1.csv` | 63 | Mausam Kumari |
+| `member2.csv` | 63 | Manoj Dewda |
+| `member3.csv` | 62 | Kuldeep Saraswat |
+| `member4.csv` | 62 | Anushri Mishra |
 
-Share the filled sheets with the person running step 3 privately (Drive), not on GitHub.
+Sheets are shared privately (Drive / WhatsApp), never on GitHub.
 
-## Guidelines (read before annotating)
+## How to review (about 15 minutes)
 
-Every post in your sheet is labelled **HOF** (hateful or offensive). For each post, write in the
-`rationale` column the **numbers** of the words that make it hateful or offensive. The numbers are in
-the `numbered_words` column (`0=tum | 1=log | 2=gaddar | ...`).
+1. Open your CSV in Excel or Google Sheets.
+2. For each row, read `text`. The words are numbered in `numbered_words` (`0=तुम | 1=लोग | 2=हरामी ...`).
+3. `llm_suggestion` shows what the LLM marked (do not edit this column).
+   `rationale` holds the same numbers to start with: **correct it** if needed.
+   - add a missed word, remove a wrong one, e.g. change `2 7` to `2 5 7`
+   - ranges are allowed: `3-5` = words 3, 4 and 5
+   - if the post is not offensive to you, empty `rationale` and write `not HOF` in `comment`
+   - 32 rows have no suggestion (the LLM found no clear word): fill them yourself
+4. Write `yes` in `reviewed` for **every row you checked**, also when you changed nothing.
+   Rows without `yes` are not used.
+5. Save as **CSV UTF-8** (Excel: *File → Save As → CSV UTF-8*) with the same file name and send it back.
 
-- Format: numbers separated by spaces, e.g. `2 5`. A range of neighbouring words: `2-4` (= 2 3 4).
-- Mark the **smallest set of words** that would justify the HOF label on its own: insults, slurs,
-  threats, abusive emojis (`emoji_...`), dehumanising words.
-- For hate against a group, also mark the **target** word if it is part of the insult
-  (e.g. "ye *log* *gaddar* hai"). Do not mark neutral words such as "hai", "ye", "<user>".
-- Mark the word in whichever script it appears (Devanagari or Roman).
-- If you think the post is **not** actually offensive, leave `rationale` empty and write `not HOF` in
-  `comment`. Empty rows are skipped when collecting.
-- Do not change the `id`, `text` or `numbered_words` columns.
+## Guidelines
+
+Every post is labelled **HOF** (hateful or offensive). Mark the words that make it hateful or offensive:
+
+- the **smallest set of words** that would justify the HOF label on its own: insults, slurs, threats,
+  abusive emojis (`emoji_...`), dehumanising words (e.g. calling people animals)
+- for hate against a group, also mark the **target** word when it is part of the insult
+  (e.g. "ये *मुसलमान* *गद्दार* है"); do not mark neutral words such as "है", "ये", "<user>"
+- mark the word in whichever script it appears (Devanagari or Roman)
 
 These follow the HateXplain instructions (Mathew et al., 2021), so our Hinglish rationales and the
 English HateXplain rationales are comparable.
+
+## Commands
+
+```bash
+python scripts/sample_for_annotation.py             # make the 4 sheets (seed 42, same for everyone)
+python scripts/sample_for_annotation.py --prefill   # fill them with llm_suggestions.jsonl
+python scripts/sample_for_annotation.py --collect   # reviewed rows -> hasoc_rationales.jsonl, then commit it
+```
