@@ -17,6 +17,12 @@ Interpretation and limitations are in the main [README](../../README.md#transfor
 | `training_curves_loss.png` | Training (solid) and validation (dashed) loss per epoch. Verified runs only. The y-axis differs per panel: the training loss of rationale runs includes the λ-weighted rationale term (≈25 for λ = 10), so it is not comparable across λ; validation loss is plain cross-entropy on HASOC. |
 | `training_history.csv` | The numbers behind both curve plots: one row per run and epoch (15 verified runs, 68 rows), from each run's `history.json`. |
 
+| `explanations_hasoc.csv` | Issue #4: faithfulness + Hinglish plausibility of the CNN / BiLSTM explanations (1 seed). |
+| `explanations_transformers_hasoc.csv` | Issue #4: same for every transformer run with a checkpoint, mean ± std over seeds (HASOC test, 1,314 posts). |
+| `explanations_transformers_hatexplain.csv` | Issue #4: same on the HateXplain test set (seeded sample of 500 posts). |
+
+The explanation CSVs are produced by `python scripts/explanation_table.py --results-dir <folder> --dataset <hasoc|hatexplain> --out <csv>`.
+
 The three training-curve files are produced by `python scripts/plot_training_curves.py --results-dir <folder with the run folders>`.
 | `original/master_results.csv`, `original/experiment_summary.csv` | The CSVs exactly as first produced, kept for traceability. |
 

@@ -233,9 +233,59 @@ Per-configuration CSV: [`docs/results/explanations_hasoc.csv`](docs/results/expl
   rationale supervision. The Hinglish rationales were LLM-suggested and accepted unchanged by the
   reviewers, so plausibility partly measures agreement with that LLM.
 
-**Results: vanilla vs rationale-supervised transformers.** *Pending: needs the trained MuRIL / XLM-R
-checkpoints (Kaggle run folders) and the finished Hinglish annotations. Run `scripts/explain.py` on every
-run, then paste the output of `scripts/explanation_table.py` here.*
+**Results: vanilla vs rationale-supervised transformers.** Every run with a saved checkpoint was explained
+with the same options (Colab T4, fp16): HASOC test = all 1,314 posts (plausibility on our 218 Hinglish
+rationales), HateXplain test = a seeded sample of 500 posts (302 with rationales), 200 LIME samples, seed 42.
+Mean ± sample std over the seeds that have a checkpoint: λ = 1 has none (all three runs were reconstructed
+from logs), λ = 0.1 seed 44 has no `config.yaml`, λ = 10 only seed 44 exists.
+Full tables (all methods, also "predicted HOF" columns):
+[`explanations_transformers_hasoc.csv`](docs/results/explanations_transformers_hasoc.csv) ·
+[`explanations_transformers_hatexplain.csv`](docs/results/explanations_transformers_hatexplain.csv).
+
+*Hinglish (HASOC test): [CLS] attention, the explanation the rationale loss trains*
+
+| Model | Train data | λ | Seeds | Comprehensiveness ↑ | Sufficiency ↓ | Token F1 ↑ | AUPRC ↑ |
+|---|---|---|---|---|---|---|---|
+| MuRIL | HASOC | – | 3 | 0.096 ± 0.011 | 0.057 ± 0.018 | 0.502 ± 0.008 | 0.696 ± 0.011 |
+| XLM-R | HASOC | – | 3 | 0.140 ± 0.013 | 0.103 ± 0.020 | 0.476 ± 0.041 | 0.661 ± 0.070 |
+| MuRIL (control) | HASOC + HX | 0 | 3 | **0.204 ± 0.007** | 0.082 ± 0.010 | 0.531 ± 0.038 | 0.737 ± 0.054 |
+| MuRIL + rationale | HASOC + HX | 0.01 | 3 | 0.193 ± 0.026 | 0.080 ± 0.018 | 0.569 ± 0.006 | 0.803 ± 0.008 |
+| MuRIL + rationale | HASOC + HX | 0.1 | 2 | 0.124 ± 0.008 | **0.044 ± 0.001** | **0.585 ± 0.018** | **0.817 ± 0.011** |
+| MuRIL + rationale | HASOC + HX | 10 | 1 | 0.162 | 0.059 | 0.575 | 0.816 |
+| *random baseline* | | | | *0.02 – 0.04* | *0.13 – 0.25* | *0.119* | *0.207* |
+
+*Same runs, LIME on Hinglish (model-agnostic check)*: comprehensiveness 0.159 (MuRIL), 0.313 (XLM-R),
+0.305 (control), 0.279 (λ 0.01), 0.168 (λ 0.1), 0.253 (λ 10); token F1 0.418, 0.459, 0.441, 0.481, 0.508, 0.534.
+
+*English (HateXplain test, 500 posts): attention* token F1 / AUPRC: control 0.438 / 0.792 → λ 0.01
+0.480 / 0.899 → λ 0.1 0.487 / 0.919 → λ 10 0.496 / 0.935; comprehensiveness 0.332 → 0.284 → 0.194 → 0.270.
+
+**What this says about the research question** (rationale runs compared with the λ = 0 control, which has
+the same training data):
+
+- **Plausibility transfers from English to Hinglish.** Supervising the [CLS] attention with *English*
+  HateXplain rationales makes it agree more with *Hinglish* human rationales: token F1 0.53 → 0.57–0.59 and
+  AUPRC 0.74 → 0.80–0.82, for every λ tried and by more than the seed-to-seed spread. As expected, the gain
+  is largest on English, where the supervision was given (AUPRC 0.79 → 0.90–0.94).
+- **Faithfulness does not clearly improve.** Sufficiency gets better (0.082 → 0.044 at λ = 0.1): the
+  attended words alone keep the prediction. But comprehensiveness does not rise; it stays level (λ = 0.01)
+  or falls (λ = 0.1: 0.204 → 0.124). Deleting the attended words does not hurt the supervised models
+  more than the control. So the answer to "does English rationale supervision make explanations more
+  faithful on code-mixed text?" is **no on comprehensiveness, partly yes on sufficiency**: it mainly makes
+  the explanations look more human-like.
+- Part of the comprehensiveness drop is a change in the models, not only in the explanations: at λ = 0.1
+  even LIME and *random* deletions move the prediction less (random 0.044 → 0.020), i.e. that model's
+  decision is spread over more words. Relative to random, attention comprehensiveness is 4.7× (control),
+  5.5× (λ 0.01), 6.1× (λ 0.1) and 5.7× (λ 10).
+- **Adding English data alone already changed the explanations.** MuRIL on HASOC only → control (HASOC + HX,
+  λ = 0): attention comprehensiveness 0.096 → 0.204, while test macro-F1 fell slightly (0.834 → 0.825,
+  issue #3). The control row is what separates this from the effect of the rationale loss.
+- LIME stays more faithful than attention for every model; attention stays more plausible for MuRIL.
+
+**Limitations.** 1–3 seeds per configuration (λ = 1 cannot be evaluated; λ = 10 has a single seed) and no
+significance test; the Hinglish rationales were LLM-suggested and accepted unchanged by the reviewers, so
+Hinglish plausibility partly measures agreement with that LLM; HateXplain plausibility uses 500 of the
+1,924 test posts; LIME used 200 samples per post; models were explained in fp16.
 
 ## Tasks
 
