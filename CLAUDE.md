@@ -4,11 +4,6 @@ Guidance for Claude (and any AI assistant) working in this repository.
 
 ## ⚠️ Git rules (most important)
 
-- **Never run `git commit`, `git push`, `git merge`, `git rebase`, or any other command that
-  changes git history or the remote.**
-- When work is ready, **print the exact commands** (`git add ...`, `git commit -m ...`,
-  `git push ...`) for the user to run themselves.
-- Read-only git commands (`git status`, `git diff`, `git log`) are fine.
 - Never commit datasets (`data/raw/`, `data/processed/`), checkpoints (`*.pt`), or `results/`.
   The HASOC licence does not allow us to redistribute the data.
 
