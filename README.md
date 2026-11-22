@@ -273,10 +273,15 @@ the same training data):
   more than the control. So the answer to "does English rationale supervision make explanations more
   faithful on code-mixed text?" is **no on comprehensiveness, partly yes on sufficiency**: it mainly makes
   the explanations look more human-like.
-- Part of the comprehensiveness drop is a change in the models, not only in the explanations: at λ = 0.1
-  even LIME and *random* deletions move the prediction less (random 0.044 → 0.020), i.e. that model's
-  decision is spread over more words. Relative to random, attention comprehensiveness is 4.7× (control),
+- Much of the comprehensiveness drop is a change in the models' *probability scale*, not only in the
+  explanations: the λ = 0.1 models (like MuRIL on HASOC only) never output P(HOF) above ≈ 0.75 or below
+  ≈ 0.26 on the test set, while the control spans 0.11–0.90. A deletion can therefore lower the
+  confidence by at most ≈ 0.48, which caps comprehensiveness; even LIME and *random* deletions score lower
+  (random 0.044 → 0.020). Relative to random, attention comprehensiveness is 4.7× (control),
   5.5× (λ 0.01), 6.1× (λ 0.1) and 5.7× (λ 10).
+- Comprehensiveness also underrates explanations of posts with many abusive words: deleting the top 1–2
+  words leaves other slurs, so the prediction does not move (e.g. posts with comprehensiveness ≈ 0 whose
+  top attention words are all slurs).
 - **Adding English data alone already changed the explanations.** MuRIL on HASOC only → control (HASOC + HX,
   λ = 0): attention comprehensiveness 0.096 → 0.204, while test macro-F1 fell slightly (0.834 → 0.825,
   issue #3). The control row is what separates this from the effect of the rationale loss.
