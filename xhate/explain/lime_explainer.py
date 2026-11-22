@@ -54,7 +54,7 @@ import numpy as np
 from xhate.data.labels import HOF, LABEL_NAMES
 
 
-def lime_scores(predictor, token_lists, num_samples=500, seed=42, label=HOF):
+def lime_scores(predictor, token_lists, num_samples=500, seed=42, label=HOF, progress_every=50):
     """LIME weight per word position for every post (list of numpy arrays).
 
     Args:
@@ -63,9 +63,18 @@ def lime_scores(predictor, token_lists, num_samples=500, seed=42, label=HOF):
         num_samples: perturbed copies per post (see Q&A).
         seed: random seed for the perturbations.
         label: class whose probability is explained (1 = HOF, see Q&A).
+        progress_every: print a progress line every this many posts (0 = silent).
+
+    Q: Why print progress?
+    A: LIME is by far the slowest step (num_samples model calls per post); for a transformer on
+       1,314 posts it takes many minutes. Without progress lines it looks frozen.
     """
     # Imported here so that importing xhate.explain does not require the lime package.
     from lime.lime_text import LimeTextExplainer
+    # time: elapsed time and the estimate of the time left.
+    import time
+    # Start of the LIME run.
+    start = time.time()
 
     # One explainer for all posts (see the Q&A for every option).
     explainer = LimeTextExplainer(class_names=LABEL_NAMES,   # "NOT", "HOF"
@@ -82,7 +91,13 @@ def lime_scores(predictor, token_lists, num_samples=500, seed=42, label=HOF):
     # One array per post.
     out = []
     # Explain the posts one by one (LIME fits one small linear model per post).
-    for tokens in token_lists:
+    for i, tokens in enumerate(token_lists):
+        # Progress line every `progress_every` posts: done / total, elapsed, estimated time left.
+        if progress_every and i and i % progress_every == 0:
+            elapsed = time.time() - start                            # seconds so far
+            left = elapsed / i * (len(token_lists) - i)              # same speed for the rest
+            print(f"[lime] {i}/{len(token_lists)} posts | {elapsed / 60:.1f} min elapsed | "
+                  f"~{left / 60:.1f} min left", flush=True)          # flush: show it immediately
         # A post with no words has nothing to explain.
         if len(tokens) == 0:
             out.append(np.zeros(0, dtype=np.float64))  # empty score array

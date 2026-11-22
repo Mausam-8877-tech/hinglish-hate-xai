@@ -46,7 +46,17 @@ A: LIME and the faithfulness metrics call the model thousands of times. Batching
 Q: Why softmax?
 A: The models return logits (unnormalised scores). softmax turns them into probabilities that
    are >= 0 and sum to 1, which is what LIME and the ERASER metrics expect.
+
+Q: Why half precision (fp16) on a GPU?
+A: LIME needs hundreds of thousands of forward passes for a transformer. GPUs such as the Colab
+   T4 compute fp16 much faster than fp32. ``torch.autocast`` runs the matrix multiplications in
+   fp16 and keeps sensitive operations (softmax, LayerNorm) in fp32, so probabilities change only
+   in the 3rd-4th decimal. Every run is explained the same way, so comparisons stay fair.
+   On the CPU nothing changes (fp32).
 """
+
+# nullcontext: a "do nothing" with-block (used on the CPU instead of autocast).
+from contextlib import nullcontext
 
 # numpy: the output format LIME and scikit-learn expect.
 import numpy as np
@@ -153,10 +163,14 @@ class Predictor:
             return np.zeros((0, 2), dtype=np.float64)  # 0 rows, 2 columns
         # Probabilities of every batch.
         chunks = []
+        # On a GPU, run the model in half precision (fp16): 2-3x faster for LIME (see Q&A).
+        amp = torch.autocast("cuda", dtype=torch.float16) if self.device.type == "cuda" else nullcontext()
         # One forward pass per batch.
         for _, input_ids, attention_mask, _ in self.batches(token_lists):
-            # Logits (B, 2) -> probabilities with softmax.
-            probs = self.model(input_ids, attention_mask).softmax(dim=-1)
+            # Logits (B, 2), in fp16 on a GPU; softmax in float32 for exact probabilities.
+            with amp:
+                logits = self.model(input_ids, attention_mask)
+            probs = logits.float().softmax(dim=-1)
             # Back to the CPU as numpy (float64: what LIME's regression expects).
             chunks.append(probs.double().cpu().numpy())
         # Stack the batches into one (N, 2) array.

@@ -16,6 +16,27 @@ team members"*.
 | `llm_suggestions.jsonl` | Yes | the LLM's suggested word numbers per post id (no text) |
 | `hasoc_rationales.jsonl` | Yes | collected result: post id, token count, final 0/1 mask, reviewer, LLM mask, changed flag. No text. |
 
+## Status (collected)
+
+All four reviewers returned their sheets (as PDF exports of the Google Sheets); the `reviewed` /
+`comment` cells were copied into the CSVs from those exports, and `--collect` was run.
+
+| | Posts |
+|---|---|
+| sampled HOF test posts | 250 |
+| reviewed (`reviewed = yes`) | 249 (one row in member1's sheet has no `yes`: `hasoc_hi_5835`) |
+| reviewed with at least one marked word → **in `hasoc_rationales.jsonl`** | **218** |
+| reviewed, no word marked (LLM found none, reviewer added none) | 31 |
+| LLM suggestions changed by a reviewer | **0** |
+
+Limitation to report: reviewers accepted every suggestion unchanged, so these rationales are
+effectively LLM rationales that four humans checked and agreed with; anchoring on the suggestions
+cannot be ruled out, and there is no independent second annotation to measure agreement.
+
+Practical note: Google Sheets turned some suggestions into dates (`0 1 12` was shown as `2000 1 12`).
+Because no row was changed, the original numbers from `llm_suggestions.jsonl` were kept. For future
+sheets, format the `llm_suggestion` and `rationale` columns as *Plain text* before editing.
+
 ## Who reviews which sheet
 
 | Sheet | Posts | Reviewer |
