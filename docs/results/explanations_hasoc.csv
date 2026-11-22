@@ -1,6 +1,6 @@
 configuration,lambda,seeds,method,comp,suff,comp_hof,suff_hof,token_f1,auprc
-baseline_bilstm,0.0,1,attention,0.1630,0.1116,0.3913,-0.0388,–,–
-baseline_bilstm,0.0,1,lime,0.3800,-0.1016,0.5127,-0.0949,–,–
-baseline_bilstm,0.0,1,random,0.0316,0.2153,0.0541,0.2779,–,–
-baseline_cnn,0.0,1,lime,0.4328,-0.0688,0.4523,-0.0677,–,–
-baseline_cnn,0.0,1,random,0.0373,0.2515,0.0416,0.2773,–,–
+baseline_bilstm,0.0,1,attention,0.1630,0.1116,0.3913,-0.0388,0.3615,0.5355
+baseline_bilstm,0.0,1,lime,0.3800,-0.1016,0.5127,-0.0949,0.3364,0.5099
+baseline_bilstm,0.0,1,random,0.0316,0.2153,0.0541,0.2779,0.1189,0.2074
+baseline_cnn,0.0,1,lime,0.4328,-0.0688,0.4523,-0.0677,0.3559,0.5385
+baseline_cnn,0.0,1,random,0.0373,0.2515,0.0416,0.2773,0.1189,0.2074

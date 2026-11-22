@@ -205,16 +205,18 @@ then `python scripts/sample_for_annotation.py --collect` → `data/annotations/h
 **Results: baselines (done).** HASOC 2019 Hindi test set, all 1,314 posts, seed 42, 500 LIME
 samples per post, CPU. The models were retrained with their configs for this (BiLSTM test macro-F1
 0.8016, the same as above; CNN 0.7740, slightly below the 0.7765 above, from CPU/library differences).
-Plausibility is not available yet: HASOC has no rationales until our annotations are collected.
+Plausibility is measured on the 218 HASOC test posts with our Hinglish rationales
+([data/annotations/](data/annotations/README.md): LLM pre-annotation, reviewed by the four team members,
+no suggestion changed; token F1 uses k = the average rationale length).
 Per-configuration CSV: [`docs/results/explanations_hasoc.csv`](docs/results/explanations_hasoc.csv).
 
-| Model | Method | Comprehensiveness ↑ | Sufficiency ↓ | Comp. (pred. HOF) ↑ | Suff. (pred. HOF) ↓ |
-|---|---|---|---|---|---|
-| BiLSTM + attention | attention | 0.1630 | 0.1116 | 0.3913 | −0.0388 |
-| BiLSTM + attention | LIME | **0.3800** | **−0.1016** | **0.5127** | **−0.0949** |
-| BiLSTM + attention | random | 0.0316 | 0.2153 | 0.0541 | 0.2779 |
-| CNN (Kim 2014) | LIME | **0.4328** | **−0.0688** | **0.4523** | **−0.0677** |
-| CNN (Kim 2014) | random | 0.0373 | 0.2515 | 0.0416 | 0.2773 |
+| Model | Method | Comprehensiveness ↑ | Sufficiency ↓ | Comp. (pred. HOF) ↑ | Suff. (pred. HOF) ↓ | Token F1 ↑ | AUPRC ↑ |
+|---|---|---|---|---|---|---|---|
+| BiLSTM + attention | attention | 0.1630 | 0.1116 | 0.3913 | −0.0388 | **0.3615** | **0.5355** |
+| BiLSTM + attention | LIME | **0.3800** | **−0.1016** | **0.5127** | **−0.0949** | 0.3364 | 0.5099 |
+| BiLSTM + attention | random | 0.0316 | 0.2153 | 0.0541 | 0.2779 | 0.1189 | 0.2074 |
+| CNN (Kim 2014) | LIME | **0.4328** | **−0.0688** | **0.4523** | **−0.0677** | **0.3559** | **0.5385** |
+| CNN (Kim 2014) | random | 0.0373 | 0.2515 | 0.0416 | 0.2773 | 0.1189 | 0.2074 |
 
 - Both methods beat the random baseline by a wide margin, so the explanations carry real information
   about the models.
@@ -224,8 +226,12 @@ Per-configuration CSV: [`docs/results/explanations_hasoc.csv`](docs/results/expl
   explanation. Attention does much better on posts predicted HOF (0.39) than on all posts.
 - LIME's sufficiency is negative: the model is *more* confident on LIME's top words alone than on the
   full post, so the remaining words were pulling it towards the other class.
+- **Faithful is not the same as plausible.** For the BiLSTM, LIME is the more *faithful* explanation, but
+  attention agrees slightly better with the human rationales (token F1 0.36 vs 0.34, AUPRC 0.54 vs 0.51).
+  Both are far above random (0.12 / 0.21).
 - Single seed, so no ± yet. The numbers measure the baselines only; they say nothing yet about
-  rationale supervision.
+  rationale supervision. The Hinglish rationales were LLM-suggested and accepted unchanged by the
+  reviewers, so plausibility partly measures agreement with that LLM.
 
 **Results: vanilla vs rationale-supervised transformers.** *Pending: needs the trained MuRIL / XLM-R
 checkpoints (Kaggle run folders) and the finished Hinglish annotations. Run `scripts/explain.py` on every
