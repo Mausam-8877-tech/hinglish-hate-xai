@@ -1,0 +1,22 @@
+experiment,training_data,lambda,seed,test_accuracy,test_macro_f1
+MuRIL Vanilla,HASOC only,-,42,0.836377,0.835925
+MuRIL Vanilla,HASOC only,-,43,0.831811,0.82841
+MuRIL Vanilla,HASOC only,-,44,0.8379,0.83725
+XLM-R Vanilla,HASOC only,-,42,0.832572,0.830813
+XLM-R Vanilla,HASOC only,-,43,0.833333,0.832382
+XLM-R Vanilla,HASOC only,-,44,0.831811,0.83042
+MuRIL HX,HASOC + HateXplain,0,42,0.828767,0.828509
+MuRIL HX,HASOC + HateXplain,0,43,0.827245,0.826259
+MuRIL HX,HASOC + HateXplain,0,44,0.821918,0.821351
+MuRIL Rationale,HASOC + HateXplain,0.01,42,0.834094,0.833312
+MuRIL Rationale,HASOC + HateXplain,0.01,43,0.834094,0.832604
+MuRIL Rationale,HASOC + HateXplain,0.01,44,0.834855,0.832401
+MuRIL Rationale,HASOC + HateXplain,0.1,42,0.824962,0.822328
+MuRIL Rationale,HASOC + HateXplain,0.1,43,0.842466,0.840524
+MuRIL Rationale,HASOC + HateXplain,0.1,44,0.821918,0.8215
+MuRIL Rationale,HASOC + HateXplain,1,42,0.8356,0.8347
+MuRIL Rationale,HASOC + HateXplain,1,43,0.8371,0.8368
+MuRIL Rationale,HASOC + HateXplain,1,44,0.8356,0.8351
+MuRIL Rationale,HASOC + HateXplain,10,42,0.8371,0.8358
+MuRIL Rationale,HASOC + HateXplain,10,43,0.8318,0.8292
+MuRIL Rationale,HASOC + HateXplain,10,44,0.832572,0.830537

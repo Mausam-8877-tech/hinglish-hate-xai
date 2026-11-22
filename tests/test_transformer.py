@@ -219,3 +219,30 @@ def test_run_seeds_reports_mean_and_std(tmp_path, tiny_model_dir):
     assert summary["run_name"] == "tiny_lam0.5"
     assert (tmp_path / "results" / "tiny_lam0.5_seed2" / "metrics.json").exists()
     assert len(summary["macro_f1"]["values"]) == 2 and summary["macro_f1"]["std"] >= 0
+
+
+# ------------------------------------------------------------ training curves
+def test_plot_training_curves_writes_plots_and_csv(tmp_path):
+    """scripts/plot_training_curves.py turns run folders into two PNGs and a CSV."""
+    pytest.importorskip("matplotlib")
+    import plot_training_curves
+    results = tmp_path / "results"
+    # Two configurations; the second is missing one seed (as happens with lost runs).
+    for base, lam, seeds in (("muril_vanilla", 0.0, (42, 43)), ("muril_rationale_lam1", 1.0, (42,))):
+        for seed in seeds:
+            run = results / f"{base}_seed{seed}"
+            run.mkdir(parents=True)
+            history = [{"epoch": e, "train_loss": 1 / e, "val_loss": 0.5, "val_accuracy": 0.8,
+                        "val_macro_f1": 0.8 + e / 100} for e in (1, 2, 3)]
+            (run / "history.json").write_text(json.dumps(history), encoding="utf-8")
+            (run / "metrics.json").write_text(json.dumps(
+                {"best_epoch": 3, "lambda": lam, "encoder": "google/muril-base-cased",
+                 "dataset": "hasoc+hatexplain" if lam else "hasoc"}), encoding="utf-8")
+    # A folder that is not "<name>_seed<N>" is ignored.
+    (results / "smoke").mkdir()
+    (results / "smoke" / "history.json").write_text("[]", encoding="utf-8")
+    out = plot_training_curves.main(["--results-dir", str(results), "--out-dir", str(tmp_path / "out")])
+    assert out["f1"].stat().st_size > 0 and out["loss"].stat().st_size > 0
+    rows = out["csv"].read_text(encoding="utf-8").strip().splitlines()
+    assert len(rows) == 1 + 3 * 3  # header + 3 runs x 3 epochs
+    assert rows[1].startswith("muril_vanilla_seed42,42,1,")  # HASOC-only configuration comes first

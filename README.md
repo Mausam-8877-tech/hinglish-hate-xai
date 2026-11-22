@@ -36,7 +36,7 @@ hinglish-hate-xai/
 │   └── annotations/      our own Hinglish rationale annotations (committed)
 ├── docs/TASKS.md         task board (Member 1 – 4)
 ├── notebooks/            EDA and analysis notebooks
-├── results/              run outputs and checkpoints (git-ignored)
+├── results/              run outputs (git-ignored)
 ├── scripts/              command-line entry points
 │   ├── prepare_data.py
 │   ├── train.py
@@ -71,15 +71,85 @@ python scripts/train.py --config configs/baseline_bilstm.yaml   # -> results/bas
 
 ### Transformers + rationale supervision (issue #3)
 
-Test = HASOC 2019 Hindi test, mean ± std over seeds 42, 43, 44. "+ HX" = HateXplain train
-posts added to training (val/test stay HASOC). λ = weight of the rationale loss.
+**Methodology.**
 
-| Model | Train data | λ | Accuracy | Macro-F1 | Config |
-|---|---|---|---|---|---|
-| XLM-R base | HASOC | – | _todo_ | _todo_ | `configs/xlmr_vanilla.yaml` |
-| MuRIL base | HASOC | – | _todo_ | _todo_ | `configs/muril_vanilla.yaml` |
-| MuRIL base (control) | HASOC + HX | 0 | _todo_ | _todo_ | `configs/muril_hx_lambda0.yaml` |
-| MuRIL base + rationale | HASOC + HX | 0.01 / 0.1 / 1 / 10 | _todo_ | _todo_ | `configs/muril_rationale.yaml` |
+- Models: MuRIL (`google/muril-base-cased`) and XLM-R (`xlm-roberta-base`), fine-tuned with a
+  linear layer on the [CLS] vector.
+- Training setup: AdamW, lr 2e-5, 10% linear warmup, batch 16, max 128 sub-words, at most 5 epochs.
+  Early stopping on validation macro-F1 (patience 2) and class-weighted cross-entropy.
+- Rationale-supervised runs add `λ · CE(human rationale, [CLS] attention)` (last layer, mean over
+  heads), applied only to HateXplain HOF posts that have a rationale.
+- "+ HX" means the 15,383 HateXplain train posts are added to the 4,164 HASOC train posts.
+  Validation (463 posts) and test (official HASOC 2019 Hindi test file, 1,314 posts) are **HASOC only**
+  in every run.
+- **7 configurations × 3 seeds (42, 43, 44) = 21 runs**, trained using Kaggle GPU runtime.
+- The λ = 0 control uses the same data as the rationale runs without the extra loss. It separates
+  "more data" from "rationale supervision".
+
+**Results.** Test accuracy and macro-F1 as mean ± **sample** standard deviation over 3 seeds.
+Values are fractions rounded to 4 decimals. "Verified" = how many of the 3 runs are backed by a saved
+`metrics.json`; the rest were reconstructed from training logs (see below).
+
+| Model | Train data | λ | Accuracy | Macro-F1 | Verified | Config |
+|---|---|---|---|---|---|---|
+| MuRIL base | HASOC | – | 0.8354 ± 0.0032 | 0.8339 ± 0.0048 | 3/3 | `configs/muril_vanilla.yaml` |
+| XLM-R base | HASOC | – | 0.8326 ± 0.0008 | 0.8312 ± 0.0010 | 3/3 | `configs/xlmr_vanilla.yaml` |
+| MuRIL base (control) | HASOC + HX | 0 | 0.8260 ± 0.0036 | 0.8254 ± 0.0037 | 3/3 | `configs/muril_hx_lambda0.yaml` |
+| MuRIL base + rationale | HASOC + HX | 0.01 | 0.8343 ± 0.0004 | 0.8328 ± 0.0005 | 3/3 | `configs/muril_rationale.yaml` |
+| MuRIL base + rationale | HASOC + HX | 0.1 | 0.8298 ± 0.0111 | 0.8281 ± 0.0108 | 2/3 ‡ | `configs/muril_rationale.yaml` |
+| MuRIL base + rationale † | HASOC + HX | 1 | 0.8361 ± 0.0009 | 0.8355 ± 0.0011 | **0/3** | `configs/muril_rationale.yaml` |
+| MuRIL base + rationale † | HASOC + HX | 10 | 0.8338 ± 0.0029 | 0.8318 ± 0.0035 | 1/3 | `configs/muril_rationale.yaml` |
+
+† Includes reconstructed runs (λ = 1 entirely). ‡ Includes one reconstructed run with an unresolved
+value (see below).
+
+Graphs (original figures, built from all 21 runs, reconstructed runs **not** marked; y-axis starts at 80%):
+[test accuracy](docs/results/accuracy_comparison.png) ·
+[test macro-F1](docs/results/macro_f1_comparison.png) ·
+[seed variability](docs/results/seed_variability.png).
+Training curves (verified runs only, from `history.json`):
+[validation macro-F1 per epoch](docs/results/training_curves_val_macro_f1.png) ·
+[training / validation loss per epoch](docs/results/training_curves_loss.png)
+(made with `python scripts/plot_training_curves.py`).
+Per-run numbers with provenance: [`docs/results/master_results.csv`](docs/results/master_results.csv);
+per-configuration summary: [`docs/results/experiment_summary.csv`](docs/results/experiment_summary.csv);
+file guide: [`docs/results/README.md`](docs/results/README.md).
+
+**Disclosure: six runs have reconstructed metrics.** For these runs only the test accuracy and macro-F1
+were recovered from earlier training-log output:
+
+- λ = 0.1 seed 44
+- λ = 1 seeds 42, 43, 44
+- λ = 10 seeds 42, 43
+
+No result folder, `metrics.json`, validation score or predictions survive for them, so they
+cannot be re-checked. They are marked `reconstructed_from_training_log` in `master_results.csv`; the other
+15 runs are marked `verified_metrics_json`.
+
+The reconstructed λ = 0.1 seed 44 accuracy (0.821918) is identical to that of the verified λ = 0 seed 44
+run. The original log is not available, so this value is kept as recorded and flagged **unresolved**.
+
+**Interpretation and limitations.**
+
+- **The differences are small.** All seven configurations lie between 0.825 and 0.836 test macro-F1, a
+  spread of about one point. This is comparable to the seed-to-seed variation within a configuration
+  (std up to 0.011). With 3 seeds per configuration and no significance test, **none of the differences
+  should be read as statistically significant**.
+- **No conclusive gain from rationale supervision.** The only pattern consistent across verified seeds is
+  that the λ = 0 control scores slightly lower than MuRIL trained on HASOC alone for each matching seed
+  (42, 43, 44). Adding English data without supervision did not help. The rationale-supervised runs are
+  roughly on par with vanilla MuRIL. λ = 1 has the highest mean, but all of its runs are reconstructed.
+- **λ must be chosen on validation, not test.** With the current evidence it cannot be chosen properly:
+  λ = 1 has no validation scores (reconstructed), and λ = 10 has a validation score for only 1 seed.
+  Verified mean validation macro-F1 is 0.8222 for λ = 0.01 (3 seeds), 0.8196 for λ = 0.1 (2 seeds) and
+  0.8337 for λ = 10 (1 seed). The test column above must not be used to pick λ.
+- **MuRIL vs XLM-R:** MuRIL is slightly higher on average but varies more across seeds; the gap
+  (0.003 macro-F1) is within noise.
+- **Accuracy is not faithfulness.** These numbers only show how well each model *classifies*. Whether
+  rationale supervision makes the models' explanations more faithful or plausible, which is the project's
+  research question, needs a separate explanation evaluation (comprehensiveness, sufficiency, token F1;
+  issue #4). It cannot be concluded from this table.
+- The data is mostly Devanagari Hindi with some romanised Hinglish, and the rationales are English only.
 
 Needs a GPU (Colab / Kaggle). Reproduce:
 
@@ -88,10 +158,13 @@ python scripts/prepare_data.py                      # HASOC + HateXplain
 python scripts/run_seeds.py --config configs/muril_vanilla.yaml
 python scripts/run_seeds.py --config configs/xlmr_vanilla.yaml
 python scripts/run_seeds.py --config configs/muril_hx_lambda0.yaml
-for L in 0.01 0.1 1 10; do
-  python scripts/run_seeds.py --config configs/muril_rationale.yaml --set loss.lambda=$L
-done
+python scripts/run_seeds.py --config configs/muril_rationale.yaml --set loss.lambda=0.01 run_name=muril_rationale_lambda001
+python scripts/run_seeds.py --config configs/muril_rationale.yaml --set loss.lambda=0.1 run_name=muril_rationale_lambda01
+python scripts/run_seeds.py --config configs/muril_rationale.yaml --set loss.lambda=1 run_name=muril_rationale_lambda1
+python scripts/run_seeds.py --config configs/muril_rationale.yaml --set loss.lambda=10 run_name=muril_rationale_lambda10
 ```
+Run folders are named `<run_name>_seed<N>`, plus `_lam<λ>` for the rationale runs, e.g.
+`muril_rationale_lambda001_lam0.01_seed42`, matching `run_folder` in `docs/results/master_results.csv`.
 
 Each model returns its [CLS] attention for explanation:
 `TransformerClassifier.get_attention(input_ids, attention_mask)` → `(B, L)`.
